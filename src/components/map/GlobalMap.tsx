@@ -72,19 +72,20 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
     else navigate({ to: "/sites/$siteId", params: { siteId: id } });
   };
 
-  const zoomIn = () => setZoom((z) => Math.min(z * 1.5, 16));
-  const zoomOut = () => setZoom((z) => Math.max(z / 1.5, 1));
-  const reset = () => { setZoom(1); setCenter([0, 20]); setRotation([-30, -20, 0]); };
+  const isGlobe = mode === "globe";
+
+  const [globeScale, setGlobeScale] = useState(240);
+  const zoomIn = () => isGlobe ? setGlobeScale((s) => Math.min(s * 1.4, 800)) : setZoom((z) => Math.min(z * 1.5, 16));
+  const zoomOut = () => isGlobe ? setGlobeScale((s) => Math.max(s / 1.4, 120)) : setZoom((z) => Math.max(z / 1.5, 1));
+  const reset = () => { setZoom(1); setCenter([0, 20]); setRotation([-30, -20, 0]); setGlobeScale(240); };
 
   const handleMouseEnter = (id: string) => { setHoveredSiteId(id); setHighlightedSite(id); };
   const handleMouseLeave = () => { setHoveredSiteId(null); setHighlightedSite(null); };
 
-  const isGlobe = mode === "globe";
-
   const projection = isGlobe ? "geoOrthographic" : "geoEqualEarth";
   const projectionConfig = useMemo(
-    () => isGlobe ? { rotate: rotation, scale: 240 } : { scale: 155 },
-    [isGlobe, rotation]
+    () => isGlobe ? { rotate: rotation, scale: globeScale } : { scale: 155 },
+    [isGlobe, rotation, globeScale]
   );
 
   return (
