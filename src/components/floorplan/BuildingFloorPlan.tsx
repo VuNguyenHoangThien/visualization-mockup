@@ -4,7 +4,7 @@ import { Plus, Minus, RotateCcw, Move } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { oeeColor } from "@/lib/oee";
-import buildingAAsset from "@/assets/building-a.png.asset.json";
+
 import type { ProductionLine } from "@/data/types";
 
 // Hand-tuned overlay rectangles aligned to the orange production-line zones
@@ -25,7 +25,7 @@ interface Props {
 }
 
 export function BuildingFloorPlan({ lines, siteId, buildingId, imageUrl }: Props) {
-  const src = imageUrl ?? buildingAAsset.url;
+  const src = imageUrl ?? "https://images.unsplash.com/photo-1581092919535-0c4f06e25b80?w=1200&auto=format&fit=crop";
   const [scale, setScale] = useState(1);
   const [tx, setTx] = useState(0);
   const [ty, setTy] = useState(0);
