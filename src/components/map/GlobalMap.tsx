@@ -34,28 +34,13 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
   const [rotation, setRotation] = useState<[number, number, number]>([-30, -20, 0]);
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number]>([0, 20]);
+  const [hoveredSiteId, setHoveredSiteId] = useState<string | null>(null);
   const navigate = useNavigate();
   const animRef = useRef<number | null>(null);
   const { highlightedSiteId, setHighlightedSite } = useUi();
 
   const activeCountryNames = useMemo(() => new Set(sites.map((s) => s.country)), [sites]);
   const selectedSet = useMemo(() => new Set(selectedCountries), [selectedCountries]);
-
-  // Country label positions: average of site coords by country
-  const countryLabels = useMemo(() => {
-    const groups = new Map<string, { lng: number; lat: number; n: number }>();
-    sites.forEach((s) => {
-      const g = groups.get(s.country) ?? { lng: 0, lat: 0, n: 0 };
-      g.lng += s.coords[0];
-      g.lat += s.coords[1];
-      g.n += 1;
-      groups.set(s.country, g);
-    });
-    return Array.from(groups.entries()).map(([name, g]) => ({
-      name,
-      coords: [g.lng / g.n, g.lat / g.n] as [number, number],
-    }));
-  }, [sites]);
 
   // Apply focus from filters
   useEffect(() => {
@@ -101,6 +86,15 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
     setZoom(1);
     setCenter([0, 20]);
     setRotation([-30, -20, 0]);
+  };
+
+  const handleMouseEnter = (id: string) => {
+    setHoveredSiteId(id);
+    setHighlightedSite(id);
+  };
+  const handleMouseLeave = () => {
+    setHoveredSiteId(null);
+    setHighlightedSite(null);
   };
 
   return (
@@ -236,32 +230,10 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
               }
             </Geographies>
 
-            {/* Country labels (white inside blue) */}
-            {countryLabels.map((c) => (
-              <Marker key={`label-${c.name}`} coordinates={c.coords}>
-                <text
-                  textAnchor="middle"
-                  y={-2}
-                  style={{
-                    fontFamily: "system-ui, -apple-system, sans-serif",
-                    fontSize: Math.max(8, 11 / Math.sqrt(zoom)),
-                    fontWeight: 700,
-                    fill: "#ffffff",
-                    paintOrder: "stroke",
-                    stroke: "#1D4ED8",
-                    strokeWidth: 2,
-                    pointerEvents: "none",
-                    letterSpacing: 0.3,
-                  }}
-                >
-                  {c.name}
-                </text>
-              </Marker>
-            ))}
-
             {sites.map((s) => {
               const color = oeeColor(s.kpi.oee);
               const isHi = highlightedSiteId === s.id;
+              const isHovered = hoveredSiteId === s.id;
               const r = (isHi ? 6 : 4) / Math.sqrt(zoom);
               const ringR = (isHi ? 12 : 8) / Math.sqrt(zoom);
               return (
@@ -269,8 +241,8 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
                   key={s.id}
                   coordinates={s.coords}
                   onClick={() => handleSite(s.id)}
-                  onMouseEnter={() => setHighlightedSite(s.id)}
-                  onMouseLeave={() => setHighlightedSite(null)}
+                  onMouseEnter={() => handleMouseEnter(s.id)}
+                  onMouseLeave={handleMouseLeave}
                 >
                   <g style={{ cursor: "pointer" }}>
                     <circle r={ringR} fill={color} fillOpacity={0.25} />
@@ -280,21 +252,25 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
                       stroke="white"
                       strokeWidth={(isHi ? 2 : 1.5) / Math.sqrt(zoom)}
                     />
-                    <text
-                      textAnchor="middle"
-                      y={-(r + 4)}
-                      style={{
-                        fontFamily: "system-ui",
-                        fontSize: Math.max(7, 10 / Math.sqrt(zoom)),
-                        fontWeight: 600,
-                        fill: "var(--foreground)",
-                        paintOrder: "stroke",
-                        stroke: "var(--background)",
-                        strokeWidth: 3 / Math.sqrt(zoom),
-                      }}
-                    >
-                      {s.name}
-                    </text>
+                    {/* Label only shown on hover */}
+                    {isHovered && (
+                      <text
+                        textAnchor="middle"
+                        y={-(r + 4)}
+                        style={{
+                          fontFamily: "system-ui",
+                          fontSize: Math.max(7, 10 / Math.sqrt(zoom)),
+                          fontWeight: 600,
+                          fill: "var(--foreground)",
+                          paintOrder: "stroke",
+                          stroke: "var(--background)",
+                          strokeWidth: 3 / Math.sqrt(zoom),
+                          pointerEvents: "none",
+                        }}
+                      >
+                        {s.name}
+                      </text>
+                    )}
                   </g>
                 </Marker>
               );
