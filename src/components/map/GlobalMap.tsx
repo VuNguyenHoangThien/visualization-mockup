@@ -20,6 +20,7 @@ type Mode = "globe" | "flat";
 
 const BLUE_ACTIVE = "#2563EB";
 const BLUE_SELECTED = "#1D4ED8";
+const BLUE_TINT = "#DBEAFE";
 
 interface Props {
   sites: Site[];
@@ -30,7 +31,7 @@ interface Props {
 
 export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }: Props) {
   const [mode, setMode] = useState<Mode>("flat");
-  const [rotation, setRotation] = useState<[number, number, number]>([-10, -20, 0]);
+  const [rotation, setRotation] = useState<[number, number, number]>([-30, -20, 0]);
   const [zoom, setZoom] = useState(1);
   const [center, setCenter] = useState<[number, number]>([0, 20]);
   const [hoveredSiteId, setHoveredSiteId] = useState<string | null>(null);
@@ -41,7 +42,6 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
   const activeCountryNames = useMemo(() => new Set(sites.map((s) => s.country)), [sites]);
   const selectedSet = useMemo(() => new Set(selectedCountries), [selectedCountries]);
 
-  // Apply focus from filters
   useEffect(() => {
     if (!focus) return;
     if (mode === "flat") {
@@ -52,17 +52,13 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
     }
   }, [focus, mode]);
 
-  // Globe auto-rotate
   useEffect(() => {
-    if (mode !== "globe" || focus) {
-      if (animRef.current) cancelAnimationFrame(animRef.current);
-      return;
-    }
+    if (mode !== "globe" || focus) return;
     let last = performance.now();
     const tick = (now: number) => {
       const dt = (now - last) / 1000;
       last = now;
-      setRotation(([x, y, z]) => [x + dt * 5, y, z]);
+      setRotation(([x, y, z]) => [x + dt * 4, y, z]);
       animRef.current = requestAnimationFrame(tick);
     };
     animRef.current = requestAnimationFrame(tick);
@@ -78,22 +74,18 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
 
   const zoomIn = () => setZoom((z) => Math.min(z * 1.5, 16));
   const zoomOut = () => setZoom((z) => Math.max(z / 1.5, 1));
-  const reset = () => {
-    setZoom(1);
-    setCenter([0, 20]);
-    setRotation([-10, -20, 0]);
-  };
+  const reset = () => { setZoom(1); setCenter([0, 20]); setRotation([-30, -20, 0]); };
 
-  const handleMouseEnter = (id: string) => {
-    setHoveredSiteId(id);
-    setHighlightedSite(id);
-  };
-  const handleMouseLeave = () => {
-    setHoveredSiteId(null);
-    setHighlightedSite(null);
-  };
+  const handleMouseEnter = (id: string) => { setHoveredSiteId(id); setHighlightedSite(id); };
+  const handleMouseLeave = () => { setHoveredSiteId(null); setHighlightedSite(null); };
 
   const isGlobe = mode === "globe";
+
+  const projection = isGlobe ? "geoOrthographic" : "geoEqualEarth";
+  const projectionConfig = useMemo(
+    () => isGlobe ? { rotate: rotation, scale: 240 } : { scale: 155 },
+    [isGlobe, rotation]
+  );
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-border bg-card shadow-soft">
@@ -101,10 +93,8 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
       <div className="absolute right-3 top-3 z-10 flex rounded-lg border border-[#2563EB]/30 bg-card/95 p-1 backdrop-blur shadow-soft">
         <Button
           size="sm"
-          className={cn(
-            "h-7 px-2.5 gap-1.5",
-            isGlobe
-              ? "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+          className={cn("h-7 px-2.5 gap-1.5",
+            isGlobe ? "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
               : "bg-transparent text-[#2563EB] hover:bg-[#DBEAFE] hover:text-[#1D4ED8]"
           )}
           onClick={() => setMode("globe")}
@@ -113,10 +103,8 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
         </Button>
         <Button
           size="sm"
-          className={cn(
-            "h-7 px-2.5 gap-1.5",
-            !isGlobe
-              ? "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+          className={cn("h-7 px-2.5 gap-1.5",
+            !isGlobe ? "bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
               : "bg-transparent text-[#2563EB] hover:bg-[#DBEAFE] hover:text-[#1D4ED8]"
           )}
           onClick={() => setMode("flat")}
@@ -125,22 +113,14 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
         </Button>
       </div>
 
-      {/* Zoom controls (flat only) */}
-      {!isGlobe && (
-        <div className="absolute right-3 top-14 z-10 flex flex-col rounded-lg border border-border bg-card/95 backdrop-blur shadow-soft">
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={zoomIn}>
-            <Plus className="h-4 w-4" />
-          </Button>
-          <div className="h-px bg-border" />
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={zoomOut}>
-            <Minus className="h-4 w-4" />
-          </Button>
-          <div className="h-px bg-border" />
-          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={reset}>
-            <RotateCcw className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
+      {/* Zoom controls */}
+      <div className="absolute right-3 top-14 z-10 flex flex-col rounded-lg border border-border bg-card/95 backdrop-blur shadow-soft">
+        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={zoomIn}><Plus className="h-4 w-4" /></Button>
+        <div className="h-px bg-border" />
+        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={zoomOut}><Minus className="h-4 w-4" /></Button>
+        <div className="h-px bg-border" />
+        <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={reset}><RotateCcw className="h-3.5 w-3.5" /></Button>
+      </div>
 
       {/* Legend */}
       <div className="absolute left-3 bottom-3 z-10 flex flex-col gap-1 rounded-lg border border-border bg-card/95 px-3 py-2 text-xs backdrop-blur shadow-soft">
@@ -153,24 +133,28 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
         </span>
       </div>
 
-      {/* Map container */}
+      {/* Map */}
       <div
-        className="w-full"
-        style={{
-          aspectRatio: isGlobe ? "1 / 1" : "16 / 9",
-          background: isGlobe
-            ? "radial-gradient(circle at 40% 40%, #e8f0fe 0%, #c7d9f8 50%, #a8c0f0 100%)"
-            : undefined,
-        }}
+        className={cn("w-full", isGlobe ? "aspect-[4/3]" : "aspect-[16/9]")}
+        style={isGlobe ? {
+          background: `radial-gradient(circle at 42% 38%, ${BLUE_TINT} 0%, #bfdbfe 55%, #93c5fd 100%)`,
+        } : undefined}
       >
-        {isGlobe ? (
-          // Globe mode: no ZoomableGroup, pure orthographic projection
-          <ComposableMap
-            projection="geoOrthographic"
-            projectionConfig={{ rotate: rotation, scale: 280 }}
-            width={600}
-            height={600}
-            style={{ width: "100%", height: "100%" }}
+        <ComposableMap
+          projection={projection}
+          projectionConfig={projectionConfig}
+          width={900}
+          height={isGlobe ? 700 : 500}
+          style={{ width: "100%", height: "100%" }}
+        >
+          <ZoomableGroup
+            zoom={isGlobe ? 1 : zoom}
+            center={isGlobe ? [0, 0] : center}
+            onMoveEnd={({ coordinates, zoom: z }) => {
+              if (!isGlobe) { setCenter(coordinates as [number, number]); setZoom(z); }
+            }}
+            minZoom={1}
+            maxZoom={16}
           >
             <Geographies geography={GEO_URL}>
               {({ geographies }) =>
@@ -178,21 +162,14 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
                   const name = (geo.properties as { name?: string }).name;
                   const isActive = name && activeCountryNames.has(name);
                   const isSelected = name && selectedSet.has(name);
+                  const fill = isSelected ? BLUE_SELECTED : isActive ? BLUE_ACTIVE : isGlobe ? "#e2e8f0" : "var(--muted)";
                   return (
                     <Geography
                       key={geo.rsmKey}
                       geography={geo}
                       style={{
-                        default: {
-                          fill: isSelected ? BLUE_SELECTED : isActive ? BLUE_ACTIVE : "#e2e8f0",
-                          stroke: "#cbd5e1",
-                          strokeWidth: 0.4,
-                          outline: "none",
-                        },
-                        hover: {
-                          fill: isActive ? BLUE_SELECTED : "#cbd5e1",
-                          outline: "none",
-                        },
+                        default: { fill, stroke: isGlobe ? "#cbd5e1" : "var(--border)", strokeWidth: 0.5, outline: "none" },
+                        hover: { fill: isActive ? BLUE_SELECTED : isGlobe ? "#cbd5e1" : "var(--secondary)", outline: "none" },
                         pressed: { fill: BLUE_SELECTED, outline: "none" },
                       }}
                     />
@@ -200,10 +177,13 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
                 })
               }
             </Geographies>
+
             {sites.map((s) => {
               const color = oeeColor(s.kpi.oee);
               const isHovered = hoveredSiteId === s.id;
               const isHi = highlightedSiteId === s.id || isHovered;
+              const r = isGlobe ? (isHi ? 6 : 4) : (isHi ? 6 : 4) / Math.sqrt(zoom);
+              const ringR = isGlobe ? (isHi ? 12 : 8) : (isHi ? 12 : 8) / Math.sqrt(zoom);
               return (
                 <Marker
                   key={s.id}
@@ -213,20 +193,20 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
                   onMouseLeave={handleMouseLeave}
                 >
                   <g style={{ cursor: "pointer" }}>
-                    <circle r={isHi ? 10 : 7} fill={color} fillOpacity={0.25} />
-                    <circle r={isHi ? 5 : 3.5} fill={color} stroke="white" strokeWidth={1.5} />
+                    <circle r={ringR} fill={color} fillOpacity={0.25} />
+                    <circle r={r} fill={color} stroke="white" strokeWidth={isGlobe ? 1.5 : (isHi ? 2 : 1.5) / Math.sqrt(zoom)} />
                     {isHovered && (
                       <text
                         textAnchor="middle"
-                        y={-14}
+                        y={-(r + 4)}
                         style={{
                           fontFamily: "system-ui",
-                          fontSize: 10,
+                          fontSize: isGlobe ? 10 : Math.max(7, 10 / Math.sqrt(zoom)),
                           fontWeight: 600,
-                          fill: "#1e293b",
+                          fill: isGlobe ? "#1e293b" : "var(--foreground)",
                           paintOrder: "stroke",
-                          stroke: "white",
-                          strokeWidth: 3,
+                          stroke: isGlobe ? "white" : "var(--background)",
+                          strokeWidth: isGlobe ? 3 : 3 / Math.sqrt(zoom),
                           pointerEvents: "none",
                         }}
                       >
@@ -237,97 +217,8 @@ export function GlobalMap({ sites, selectedCountries = [], focus, onSelectSite }
                 </Marker>
               );
             })}
-          </ComposableMap>
-        ) : (
-          // Flat mode: with ZoomableGroup
-          <ComposableMap
-            projection="geoEqualEarth"
-            projectionConfig={{ scale: 155 }}
-            width={900}
-            height={500}
-            style={{ width: "100%", height: "100%" }}
-          >
-            <ZoomableGroup
-              zoom={zoom}
-              center={center}
-              onMoveEnd={({ coordinates, zoom: z }) => {
-                setCenter(coordinates as [number, number]);
-                setZoom(z);
-              }}
-              minZoom={1}
-              maxZoom={16}
-            >
-              <Geographies geography={GEO_URL}>
-                {({ geographies }) =>
-                  geographies.map((geo) => {
-                    const name = (geo.properties as { name?: string }).name;
-                    const isActive = name && activeCountryNames.has(name);
-                    const isSelected = name && selectedSet.has(name);
-                    return (
-                      <Geography
-                        key={geo.rsmKey}
-                        geography={geo}
-                        style={{
-                          default: {
-                            fill: isSelected ? BLUE_SELECTED : isActive ? BLUE_ACTIVE : "var(--muted)",
-                            stroke: "var(--border)",
-                            strokeWidth: 0.5,
-                            outline: "none",
-                            opacity: isActive ? 0.9 : 1,
-                          },
-                          hover: {
-                            fill: isActive ? BLUE_SELECTED : "var(--secondary)",
-                            outline: "none",
-                          },
-                          pressed: { fill: BLUE_SELECTED, outline: "none" },
-                        }}
-                      />
-                    );
-                  })
-                }
-              </Geographies>
-              {sites.map((s) => {
-                const color = oeeColor(s.kpi.oee);
-                const isHovered = hoveredSiteId === s.id;
-                const isHi = highlightedSiteId === s.id || isHovered;
-                const r = (isHi ? 6 : 4) / Math.sqrt(zoom);
-                const ringR = (isHi ? 12 : 8) / Math.sqrt(zoom);
-                return (
-                  <Marker
-                    key={s.id}
-                    coordinates={s.coords}
-                    onClick={() => handleSite(s.id)}
-                    onMouseEnter={() => handleMouseEnter(s.id)}
-                    onMouseLeave={handleMouseLeave}
-                  >
-                    <g style={{ cursor: "pointer" }}>
-                      <circle r={ringR} fill={color} fillOpacity={0.25} />
-                      <circle r={r} fill={color} stroke="white" strokeWidth={(isHi ? 2 : 1.5) / Math.sqrt(zoom)} />
-                      {isHovered && (
-                        <text
-                          textAnchor="middle"
-                          y={-(r + 4)}
-                          style={{
-                            fontFamily: "system-ui",
-                            fontSize: Math.max(7, 10 / Math.sqrt(zoom)),
-                            fontWeight: 600,
-                            fill: "var(--foreground)",
-                            paintOrder: "stroke",
-                            stroke: "var(--background)",
-                            strokeWidth: 3 / Math.sqrt(zoom),
-                            pointerEvents: "none",
-                          }}
-                        >
-                          {s.name}
-                        </text>
-                      )}
-                    </g>
-                  </Marker>
-                );
-              })}
-            </ZoomableGroup>
-          </ComposableMap>
-        )}
+          </ZoomableGroup>
+        </ComposableMap>
       </div>
     </div>
   );
